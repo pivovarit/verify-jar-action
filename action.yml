@@ -16,6 +16,10 @@ inputs:
       Any .class file compiled for a higher version will cause the build to fail.
     required: false
     default: '52'
+  max-checks:
+    description: 'Maximum number of .class files to check per JAR to speed up the validation (0 = no limit, all files checked)'
+    required: false
+    default: '0'
 
 runs:
   using: 'composite'
@@ -35,6 +39,7 @@ runs:
 
         DIR="${{ inputs.directory }}"
         BYTECODE_VERSION="${{ inputs.bytecode-version }}"
+        MAX_CHECKS="${{ inputs.max-checks }}"
 
         echo -e "${BLUE}Scanning JARs in: $DIR${NC}"
 
@@ -50,11 +55,13 @@ runs:
                 echo -e "  ${YELLOW}(no class files, skipping)${NC}"
                 continue
             fi
+        
+            class_list=$(echo "$classes")
+            if [ "$MAX_CHECKS" -gt 0 ]; then
+                class_list=$(echo "$classes" | head -n "$MAX_CHECKS")
+            fi
 
-            jar tf "$JAR_FILE" \
-              | grep '\.class$' \
-              | grep -vE 'module-info|package-info' \
-              | while read -r f; do
+            echo "$class_list" | while read -r f; do
 
                   class_name="${f%.class}"
                   class_name="${class_name//\//.}"
