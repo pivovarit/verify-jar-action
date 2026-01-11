@@ -1,0 +1,84 @@
+name: 'verify-jar-version-action'
+description: 'Fail the build if any .class file in a JAR is compiled for a higher Java version than allowed'
+
+branding:
+  icon: 'search'
+  color: 'white'
+
+inputs:
+  directory:
+    description: 'Directory to scan for JARs'
+    required: false
+    default: 'target'
+  bytecode-version:
+    description: |
+      Maximum allowed class file bytecode version (major version). For example: 52 = Java 8, 55 = Java 11, 61 = Java 17.
+      Any .class file compiled for a higher version will cause the build to fail.
+    required: false
+    default: '52'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: 'Inspect and verify jars'
+      id: java
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        RED='\033[0;31m'
+        GREEN='\033[0;32m'
+        YELLOW='\033[0;33m'
+        BLUE='\033[0;34m'
+        CYAN='\033[0;36m'
+        NC='\033[0m'
+
+        DIR="${{ inputs.directory }}"
+        BYTECODE_VERSION="${{ inputs.bytecode-version }}"
+
+        echo -e "${BLUE}Scanning JARs in: $DIR${NC}"
+
+        find "$DIR" -type f -name "*.jar" \
+          | while read -r JAR_FILE; do
+
+            echo ""
+            echo -e "${BLUE}Checking $JAR_FILE${NC}"
+
+            classes=$(jar tf "$JAR_FILE" | grep '\.class$' | grep -vE 'module-info|package-info' || true)
+
+            if [ -z "$classes" ]; then
+                echo -e "  ${YELLOW}(no class files, skipping)${NC}"
+                continue
+            fi
+
+            jar tf "$JAR_FILE" \
+              | grep '\.class$' \
+              | grep -vE 'module-info|package-info' \
+              | while read -r f; do
+
+                  class_name="${f%.class}"
+                  class_name="${class_name//\//.}"
+
+                  if ! out=$(javap -verbose -cp "$JAR_FILE" "$class_name" 2>/dev/null); then
+                    echo -e "  ${YELLOW}$f ${CYAN}->${YELLOW} skipped (javap could not read class)${NC}"
+                    continue
+                  fi
+
+                  major=$(awk '/major version/ {print $3}' <<< "$out")
+
+                  if [ -z "$major" ]; then
+                    echo -e "  ${YELLOW}$f ${CYAN}->${YELLOW} skipped (no major version found)${NC}"
+                    continue
+                  fi
+
+                  echo -e "  $f ${CYAN}->${YELLOW} major version ${GREEN}$major${NC}"
+
+                  if [ "$major" -gt "$BYTECODE_VERSION" ]; then
+                      echo -e "${RED}ERROR: $f in $JAR_FILE is $major, exceeds allowed $BYTECODE_VERSION${NC}"
+                      exit 1
+                  fi
+              done
+          done
+
+
+
