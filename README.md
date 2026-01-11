@@ -17,6 +17,7 @@ Fail the build if any `.class` file in a JAR is compiled for a higher Java versi
 
 - `directory`
 - `bytecode-version`
+- `max-checks`
 
 ---
 
@@ -37,3 +38,4 @@ jobs:
         with:
           directory: 'target'
           bytecode-version: '52'
+          max-checks: 10
