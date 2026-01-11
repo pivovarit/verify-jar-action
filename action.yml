@@ -1,4 +1,4 @@
-name: 'verify-jar-version-action'
+name: 'verify-jar-action'
 description: 'Fail the build if any .class file in a JAR is compiled for a higher Java version than allowed'
 
 branding:
