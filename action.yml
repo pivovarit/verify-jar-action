@@ -10,10 +10,16 @@ inputs:
     description: 'Directory to scan for JARs'
     required: false
     default: 'target'
+  java-version:
+    description: |
+      Maximum allowed Java version (e.g. 8, 11, 17, 21).
+      Takes precedence over bytecode-version if both are provided.
+    required: false
   bytecode-version:
     description: |
       Maximum allowed class file bytecode version (major version). For example: 52 = Java 8, 55 = Java 11, 61 = Java 17.
       Any .class file compiled for a higher version will cause the build to fail.
+      Ignored if java-version is provided.
     required: false
     default: '52'
   max-checks:
@@ -29,6 +35,7 @@ runs:
       shell: bash
       env:
         INPUT_DIRECTORY: ${{ inputs.directory }}
+        INPUT_JAVA_VERSION: ${{ inputs.java-version }}
         INPUT_BYTECODE_VERSION: ${{ inputs.bytecode-version }}
         INPUT_MAX_CHECKS: ${{ inputs.max-checks }}
       run: ${{ github.action_path }}/verify.sh
