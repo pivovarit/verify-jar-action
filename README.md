@@ -15,9 +15,10 @@ Fail the build if any `.class` file in a JAR is compiled for a higher Java versi
 
 ## Inputs
 
-- `directory`
-- `bytecode-version`
-- `max-checks`
+- `directory` — directory to scan for JARs (default: `target`)
+- `java-version` — maximum allowed Java version (e.g. `8`, `11`, `17`, `21`). Takes precedence over `bytecode-version` if both are provided.
+- `bytecode-version` — maximum allowed class file bytecode version (e.g. `52` = Java 8, `55` = Java 11, `61` = Java 17). Ignored if `java-version` is provided. (default: `52`)
+- `max-checks` — maximum number of `.class` files to check per JAR (default: `0`, no limit)
 
 ---
 
@@ -33,7 +34,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Verify jar compatibility
+      - name: Verify jar compatibility (using java-version)
+        uses: pivovarit/verify-jar-action@v1
+        with:
+          directory: 'target'
+          java-version: '11'
+
+      - name: Verify jar compatibility (using bytecode-version)
         uses: pivovarit/verify-jar-action@v1
         with:
           directory: 'target'
