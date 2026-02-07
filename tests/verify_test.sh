@@ -29,8 +29,9 @@ fail() {
 
 run_verify() {
   INPUT_DIRECTORY="${1}" \
-  INPUT_BYTECODE_VERSION="${2}" \
-  INPUT_MAX_CHECKS="${3:-0}" \
+  INPUT_JAVA_VERSION="${2:-}" \
+  INPUT_BYTECODE_VERSION="${3:-}" \
+  INPUT_MAX_CHECKS="${4:-0}" \
   bash "$VERIFY_SH" 2>&1
 }
 
@@ -72,7 +73,7 @@ test_directory_does_not_exist() {
   echo "TEST: directory does not exist"
   setup
 
-  output=$(run_verify "$WORK_DIR/nonexistent" "52" "0" || true)
+  output=$(run_verify "$WORK_DIR/nonexistent" "" "52" "0" || true)
 
   if echo "$output" | grep -q "does not exist"; then
     pass "reports missing directory"
@@ -81,7 +82,7 @@ test_directory_does_not_exist() {
   fi
 
   # verify non-zero exit
-  if INPUT_DIRECTORY="$WORK_DIR/nonexistent" INPUT_BYTECODE_VERSION="52" INPUT_MAX_CHECKS="0" bash "$VERIFY_SH" >/dev/null 2>&1; then
+  if INPUT_DIRECTORY="$WORK_DIR/nonexistent" INPUT_JAVA_VERSION="" INPUT_BYTECODE_VERSION="52" INPUT_MAX_CHECKS="0" bash "$VERIFY_SH" >/dev/null 2>&1; then
     fail "should exit with non-zero" ""
   else
     pass "exits with non-zero"
@@ -95,7 +96,7 @@ test_no_jar_files() {
   echo "TEST: no JAR files in directory"
   setup
 
-  output=$(run_verify "$WORK_DIR" "52" "0" || true)
+  output=$(run_verify "$WORK_DIR" "" "52" "0" || true)
 
   if echo "$output" | grep -q "No .jar files"; then
     pass "reports no JAR files"
@@ -103,7 +104,7 @@ test_no_jar_files() {
     fail "should report no JAR files" "output: $output"
   fi
 
-  if INPUT_DIRECTORY="$WORK_DIR" INPUT_BYTECODE_VERSION="52" INPUT_MAX_CHECKS="0" bash "$VERIFY_SH" >/dev/null 2>&1; then
+  if INPUT_DIRECTORY="$WORK_DIR" INPUT_JAVA_VERSION="" INPUT_BYTECODE_VERSION="52" INPUT_MAX_CHECKS="0" bash "$VERIFY_SH" >/dev/null 2>&1; then
     fail "should exit with non-zero" ""
   else
     pass "exits with non-zero"
@@ -119,7 +120,7 @@ test_compliant_jar() {
 
   build_jar_with_release 8 "good.jar"
 
-  if output=$(run_verify "$WORK_DIR" "52" "0"); then
+  if output=$(run_verify "$WORK_DIR" "" "52" "0"); then
     pass "exits with zero"
   else
     fail "should exit with zero" "output: $output"
@@ -141,7 +142,7 @@ test_non_compliant_jar() {
 
   build_jar_with_release 17 "bad.jar"
 
-  output=$(run_verify "$WORK_DIR" "52" "0" || true)
+  output=$(run_verify "$WORK_DIR" "" "52" "0" || true)
 
   if echo "$output" | grep -q "exceeds allowed"; then
     pass "reports exceeds allowed"
@@ -149,7 +150,7 @@ test_non_compliant_jar() {
     fail "should report exceeds allowed" "output: $output"
   fi
 
-  if INPUT_DIRECTORY="$WORK_DIR" INPUT_BYTECODE_VERSION="52" INPUT_MAX_CHECKS="0" bash "$VERIFY_SH" >/dev/null 2>&1; then
+  if INPUT_DIRECTORY="$WORK_DIR" INPUT_JAVA_VERSION="" INPUT_BYTECODE_VERSION="52" INPUT_MAX_CHECKS="0" bash "$VERIFY_SH" >/dev/null 2>&1; then
     fail "should exit with non-zero" ""
   else
     pass "exits with non-zero"
@@ -165,7 +166,7 @@ test_jar_no_class_files() {
 
   build_jar_no_classes "empty.jar"
 
-  if output=$(run_verify "$WORK_DIR" "52" "0"); then
+  if output=$(run_verify "$WORK_DIR" "" "52" "0"); then
     pass "exits with zero"
   else
     fail "should exit with zero" "output: $output"
@@ -187,7 +188,7 @@ test_max_checks_limits_inspection() {
 
   build_jar_multiple_classes 8 "multi.jar"
 
-  output=$(run_verify "$WORK_DIR" "52" "1")
+  output=$(run_verify "$WORK_DIR" "" "52" "1")
   checked=$(echo "$output" | grep -c "major version" || true)
 
   if [ "$checked" -eq 1 ]; then
@@ -207,7 +208,7 @@ test_multiple_jars_mixed_compliance() {
   build_jar_with_release 8 "good.jar"
   build_jar_with_release 17 "bad.jar"
 
-  output=$(run_verify "$WORK_DIR" "52" "0" || true)
+  output=$(run_verify "$WORK_DIR" "" "52" "0" || true)
 
   if echo "$output" | grep -q "exceeds allowed"; then
     pass "reports non-compliant JAR"
@@ -215,10 +216,61 @@ test_multiple_jars_mixed_compliance() {
     fail "should report non-compliant JAR" "output: $output"
   fi
 
-  if INPUT_DIRECTORY="$WORK_DIR" INPUT_BYTECODE_VERSION="52" INPUT_MAX_CHECKS="0" bash "$VERIFY_SH" >/dev/null 2>&1; then
+  if INPUT_DIRECTORY="$WORK_DIR" INPUT_JAVA_VERSION="" INPUT_BYTECODE_VERSION="52" INPUT_MAX_CHECKS="0" bash "$VERIFY_SH" >/dev/null 2>&1; then
     fail "should exit with non-zero" ""
   else
     pass "exits with non-zero"
+  fi
+
+  teardown
+}
+
+test_java_version_compliant() {
+  TESTS_RUN=$((TESTS_RUN + 1))
+  echo "TEST: java-version compliant JAR"
+  setup
+
+  build_jar_with_release 8 "good.jar"
+
+  if output=$(run_verify "$WORK_DIR" "8" "" "0"); then
+    pass "exits with zero"
+  else
+    fail "should exit with zero" "output: $output"
+  fi
+
+  teardown
+}
+
+test_java_version_non_compliant() {
+  TESTS_RUN=$((TESTS_RUN + 1))
+  echo "TEST: java-version non-compliant JAR"
+  setup
+
+  build_jar_with_release 17 "bad.jar"
+
+  output=$(run_verify "$WORK_DIR" "8" "" "0" || true)
+
+  if echo "$output" | grep -q "exceeds allowed"; then
+    pass "reports exceeds allowed"
+  else
+    fail "should report exceeds allowed" "output: $output"
+  fi
+
+  teardown
+}
+
+test_java_version_overrides_bytecode_version() {
+  TESTS_RUN=$((TESTS_RUN + 1))
+  echo "TEST: java-version overrides bytecode-version"
+  setup
+
+  build_jar_with_release 17 "test.jar"
+
+  # bytecode-version=52 (Java 8) would fail, but java-version=17 (bytecode 61) should pass
+  if output=$(run_verify "$WORK_DIR" "17" "52" "0"); then
+    pass "java-version takes precedence over bytecode-version"
+  else
+    fail "java-version should override bytecode-version" "output: $output"
   fi
 
   teardown
@@ -234,6 +286,9 @@ test_non_compliant_jar
 test_jar_no_class_files
 test_max_checks_limits_inspection
 test_multiple_jars_mixed_compliance
+test_java_version_compliant
+test_java_version_non_compliant
+test_java_version_overrides_bytecode_version
 
 echo ""
 echo "========================================="
