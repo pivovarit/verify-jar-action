@@ -35,13 +35,13 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Verify jar compatibility (using java-version)
-        uses: pivovarit/verify-jar-action@v1
+        uses: pivovarit/verify-jar-action@v1.2.0
         with:
           directory: 'target'
           java-version: '11'
 
       - name: Verify jar compatibility (using bytecode-version)
-        uses: pivovarit/verify-jar-action@v1
+        uses: pivovarit/verify-jar-action@v1.2.0
         with:
           directory: 'target'
           bytecode-version: '52'
