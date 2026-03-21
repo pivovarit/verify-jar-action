@@ -33,6 +33,24 @@ fi
 
 echo -e "${GREEN}Found ${#JARS[@]} JAR(s)${NC}"
 
+SUMMARY_ROWS=""
+
+write_summary() {
+  [ -n "${GITHUB_STEP_SUMMARY:-}" ] || return 0
+  [ -n "$SUMMARY_ROWS" ] || return 0
+  {
+    echo "## JAR Version Check"
+    echo ""
+    echo "Allowed: bytecode \`$BYTECODE_VERSION\`"
+    echo ""
+    echo "| JAR | Classes Checked | Result |"
+    echo "| --- | --- | --- |"
+    printf "%b" "$SUMMARY_ROWS"
+  } >> "$GITHUB_STEP_SUMMARY"
+}
+
+trap write_summary EXIT
+
 for JAR_FILE in "${JARS[@]}"; do
   echo ""
   echo -e "${BLUE}Checking $JAR_FILE${NC}"
@@ -41,6 +59,7 @@ for JAR_FILE in "${JARS[@]}"; do
 
   if [ -z "$classes" ]; then
     echo -e "  ${YELLOW}(no class files, skipping)${NC}"
+    SUMMARY_ROWS+="| \`$(basename "$JAR_FILE")\` | 0 | ⚠️ No classes |\n"
     continue
   fi
 
@@ -49,7 +68,10 @@ for JAR_FILE in "${JARS[@]}"; do
     class_list=$(echo "$classes" | head -n "$MAX_CHECKS")
   fi
 
-  echo "$class_list" | while read -r f; do
+  JAR_CHECKED=0
+  JAR_STATUS="✅ Pass"
+
+  while read -r f; do
     if ! bytes=$(unzip -p "$JAR_FILE" "$f" 2>/dev/null | od -An -N8 -tu1); then
       echo -e "  ${YELLOW}$f ${CYAN}->${YELLOW} skipped (could not read class)${NC}"
       continue
@@ -62,11 +84,15 @@ for JAR_FILE in "${JARS[@]}"; do
       continue
     fi
 
-    echo -e "  $f ${CYAN}->${YELLOW} major version ${GREEN}$major${NC}"
+    JAR_CHECKED=$((JAR_CHECKED + 1))
 
     if [ "$major" -gt "$BYTECODE_VERSION" ]; then
-      echo -e "${RED}ERROR: $f in $JAR_FILE is $major, exceeds allowed $BYTECODE_VERSION${NC}"
+      echo -e "  ${RED}ERROR: $f — bytecode $major exceeds allowed $BYTECODE_VERSION${NC}"
+      SUMMARY_ROWS+="| \`$(basename "$JAR_FILE")\` | $JAR_CHECKED | ❌ Fail (bytecode $major > $BYTECODE_VERSION) |\n"
       exit 1
     fi
-  done
+  done < <(echo "$class_list")
+
+  echo -e "  ${GREEN}Checked $JAR_CHECKED class(es) — OK${NC}"
+  SUMMARY_ROWS+="| \`$(basename "$JAR_FILE")\` | $JAR_CHECKED | $JAR_STATUS |\n"
 done
