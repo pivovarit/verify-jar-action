@@ -276,6 +276,25 @@ test_java_version_overrides_bytecode_version() {
   teardown
 }
 
+test_excluded_jar_suffixes_are_skipped() {
+  TESTS_RUN=$((TESTS_RUN + 1))
+  echo "TEST: javadoc, sources, and test-sources JARs are skipped"
+  setup
+
+  build_jar_with_release 8 "lib.jar"
+  build_jar_with_release 17 "lib-javadoc.jar"
+  build_jar_with_release 17 "lib-sources.jar"
+  build_jar_with_release 17 "lib-test-sources.jar"
+
+  if output=$(run_verify "$WORK_DIR" "" "52" "0"); then
+    pass "exits with zero (excluded JARs not scanned)"
+  else
+    fail "should exit with zero — excluded JARs should be skipped" "output: $output"
+  fi
+
+  teardown
+}
+
 echo "Running verify.sh tests..."
 echo ""
 
@@ -289,6 +308,7 @@ test_multiple_jars_mixed_compliance
 test_java_version_compliant
 test_java_version_non_compliant
 test_java_version_overrides_bytecode_version
+test_excluded_jar_suffixes_are_skipped
 
 echo ""
 echo "========================================="

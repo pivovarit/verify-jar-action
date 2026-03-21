@@ -24,7 +24,7 @@ if [ ! -d "$DIR" ]; then
   exit 1
 fi
 
-mapfile -d '' JARS < <(find "$DIR" -type f -name "*.jar" -print0)
+mapfile -d '' JARS < <(find "$DIR" -type f -name "*.jar" ! -name "*-javadoc.jar" ! -name "*-sources.jar" ! -name "*-test-sources.jar" -print0)
 
 if [ "${#JARS[@]}" -eq 0 ]; then
   echo -e "${RED}ERROR: No .jar files found in $DIR${NC}"
