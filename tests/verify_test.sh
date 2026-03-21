@@ -126,10 +126,10 @@ test_compliant_jar() {
     fail "should exit with zero" "output: $output"
   fi
 
-  if echo "$output" | grep -q "major version"; then
-    pass "reports major version"
+  if echo "$output" | grep -q "Checked"; then
+    pass "reports checked class count"
   else
-    fail "should report major version" "output: $output"
+    fail "should report checked class count" "output: $output"
   fi
 
   teardown
@@ -189,7 +189,7 @@ test_max_checks_limits_inspection() {
   build_jar_multiple_classes 8 "multi.jar"
 
   output=$(run_verify "$WORK_DIR" "" "52" "1")
-  checked=$(echo "$output" | grep -c "major version" || true)
+  checked=$(echo "$output" | grep -oE 'Checked [0-9]+' | awk '{print $2}' || true)
 
   if [ "$checked" -eq 1 ]; then
     pass "only 1 class checked with max-checks=1"

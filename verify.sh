@@ -85,14 +85,14 @@ for JAR_FILE in "${JARS[@]}"; do
     fi
 
     JAR_CHECKED=$((JAR_CHECKED + 1))
-    echo -e "  $f ${CYAN}->${YELLOW} major version ${GREEN}$major${NC}"
 
     if [ "$major" -gt "$BYTECODE_VERSION" ]; then
-      echo -e "${RED}ERROR: $f in $JAR_FILE is $major, exceeds allowed $BYTECODE_VERSION${NC}"
+      echo -e "  ${RED}ERROR: $f — bytecode $major exceeds allowed $BYTECODE_VERSION${NC}"
       SUMMARY_ROWS+="| \`$(basename "$JAR_FILE")\` | $JAR_CHECKED | ❌ Fail (bytecode $major > $BYTECODE_VERSION) |\n"
       exit 1
     fi
   done < <(echo "$class_list")
 
+  echo -e "  ${GREEN}Checked $JAR_CHECKED class(es) — OK${NC}"
   SUMMARY_ROWS+="| \`$(basename "$JAR_FILE")\` | $JAR_CHECKED | $JAR_STATUS |\n"
 done
