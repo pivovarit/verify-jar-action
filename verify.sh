@@ -50,15 +50,12 @@ for JAR_FILE in "${JARS[@]}"; do
   fi
 
   echo "$class_list" | while read -r f; do
-    class_name="${f%.class}"
-    class_name="${class_name//\//.}"
-
-    if ! out=$(javap -verbose -cp "$JAR_FILE" "$class_name" 2>/dev/null); then
-      echo -e "  ${YELLOW}$f ${CYAN}->${YELLOW} skipped (javap could not read class)${NC}"
+    if ! bytes=$(unzip -p "$JAR_FILE" "$f" 2>/dev/null | od -An -N8 -tu1); then
+      echo -e "  ${YELLOW}$f ${CYAN}->${YELLOW} skipped (could not read class)${NC}"
       continue
     fi
 
-    major=$(awk '/major version/ {print $3}' <<< "$out")
+    major=$(awk 'NF>=8 {print $7 * 256 + $8}' <<< "$bytes")
 
     if [ -z "$major" ]; then
       echo -e "  ${YELLOW}$f ${CYAN}->${YELLOW} skipped (no major version found)${NC}"
