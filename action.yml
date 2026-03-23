@@ -26,6 +26,10 @@ inputs:
     description: 'Maximum number of .class files to check per JAR to speed up the validation (0 = no limit, all files checked)'
     required: false
     default: '0'
+  fail-on-violation:
+    description: 'Whether to fail the build when violations are found. Set to false for report-only mode.'
+    required: false
+    default: 'true'
 
 runs:
   using: 'composite'
@@ -38,4 +42,5 @@ runs:
         INPUT_JAVA_VERSION: ${{ inputs.java-version }}
         INPUT_BYTECODE_VERSION: ${{ inputs.bytecode-version }}
         INPUT_MAX_CHECKS: ${{ inputs.max-checks }}
+        INPUT_FAIL_ON_VIOLATION: ${{ inputs.fail-on-violation }}
       run: ${{ github.action_path }}/verify.sh
