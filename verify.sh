@@ -34,6 +34,8 @@ fi
 echo -e "${GREEN}Found ${#JARS[@]} JAR(s)${NC}"
 
 SUMMARY_ROWS=""
+FAILURE_DETAILS=""
+HAS_FAILURES=0
 
 write_summary() {
   [ -n "${GITHUB_STEP_SUMMARY:-}" ] || return 0
@@ -46,6 +48,12 @@ write_summary() {
     echo "| JAR | Classes Checked | Result |"
     echo "| --- | --- | --- |"
     printf "%b" "$SUMMARY_ROWS"
+    if [ -n "$FAILURE_DETAILS" ]; then
+      echo ""
+      echo "### Violations"
+      echo ""
+      printf "%b" "$FAILURE_DETAILS"
+    fi
   } >> "$GITHUB_STEP_SUMMARY"
 }
 
@@ -69,7 +77,8 @@ for JAR_FILE in "${JARS[@]}"; do
   fi
 
   JAR_CHECKED=0
-  JAR_STATUS="✅ Pass"
+  JAR_FAILED=0
+  JAR_VIOLATIONS=""
 
   while read -r f; do
     if ! bytes=$(unzip -p "$JAR_FILE" "$f" 2>/dev/null | od -An -N8 -tu1); then
@@ -88,11 +97,28 @@ for JAR_FILE in "${JARS[@]}"; do
 
     if [ "$major" -gt "$BYTECODE_VERSION" ]; then
       echo -e "  ${RED}ERROR: $f — bytecode $major exceeds allowed $BYTECODE_VERSION${NC}"
-      SUMMARY_ROWS+="| \`$(basename "$JAR_FILE")\` | $JAR_CHECKED | ❌ Fail (bytecode $major > $BYTECODE_VERSION) |\n"
-      exit 1
+      JAR_FAILED=$((JAR_FAILED + 1))
+      JAR_VIOLATIONS+="| \`$f\` | $major | $BYTECODE_VERSION |\n"
     fi
   done < <(echo "$class_list")
 
-  echo -e "  ${GREEN}Checked $JAR_CHECKED class(es) — OK${NC}"
-  SUMMARY_ROWS+="| \`$(basename "$JAR_FILE")\` | $JAR_CHECKED | $JAR_STATUS |\n"
+  if [ "$JAR_FAILED" -gt 0 ]; then
+    HAS_FAILURES=1
+    echo -e "  ${RED}Checked $JAR_CHECKED class(es) — $JAR_FAILED violation(s)${NC}"
+    SUMMARY_ROWS+="| \`$(basename "$JAR_FILE")\` | $JAR_CHECKED | ❌ Fail ($JAR_FAILED violation(s)) |\n"
+    FAILURE_DETAILS+="<details>\n<summary><code>$(basename "$JAR_FILE")</code> — $JAR_FAILED violation(s)</summary>\n\n"
+    FAILURE_DETAILS+="| Class | Bytecode Version | Allowed |\n"
+    FAILURE_DETAILS+="| --- | --- | --- |\n"
+    FAILURE_DETAILS+="$JAR_VIOLATIONS"
+    FAILURE_DETAILS+="\n</details>\n\n"
+  else
+    echo -e "  ${GREEN}Checked $JAR_CHECKED class(es) — OK${NC}"
+    SUMMARY_ROWS+="| \`$(basename "$JAR_FILE")\` | $JAR_CHECKED | ✅ Pass |\n"
+  fi
 done
+
+if [ "$HAS_FAILURES" -eq 1 ]; then
+  echo ""
+  echo -e "${RED}Bytecode version violations detected${NC}"
+  exit 1
+fi
