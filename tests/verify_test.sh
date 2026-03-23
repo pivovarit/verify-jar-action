@@ -32,6 +32,7 @@ run_verify() {
   INPUT_JAVA_VERSION="${2:-}" \
   INPUT_BYTECODE_VERSION="${3:-}" \
   INPUT_MAX_CHECKS="${4:-0}" \
+  INPUT_FAIL_ON_VIOLATION="${5:-true}" \
   bash "$VERIFY_SH" 2>&1
 }
 
@@ -294,6 +295,7 @@ run_verify_with_summary() {
   INPUT_JAVA_VERSION="${2:-}" \
   INPUT_BYTECODE_VERSION="${3:-}" \
   INPUT_MAX_CHECKS="${4:-0}" \
+  INPUT_FAIL_ON_VIOLATION="${5:-true}" \
   GITHUB_STEP_SUMMARY="$summary_file" \
   bash "$VERIFY_SH" 2>&1
 }
@@ -457,6 +459,123 @@ test_step_summary_multiple_jars_detailed() {
   teardown
 }
 
+test_report_only_mode_does_not_fail() {
+  TESTS_RUN=$((TESTS_RUN + 1))
+  echo "TEST: report-only mode does not fail the build"
+  setup
+
+  build_jar_with_release 17 "bad.jar"
+
+  if output=$(run_verify "$WORK_DIR" "" "52" "0" "false"); then
+    pass "exits with zero in report-only mode"
+  else
+    fail "should exit with zero in report-only mode" "output: $output"
+  fi
+
+  if echo "$output" | grep -q "report-only mode"; then
+    pass "reports report-only mode message"
+  else
+    fail "should report report-only mode message" "output: $output"
+  fi
+
+  teardown
+}
+
+test_report_only_mode_shows_warnings() {
+  TESTS_RUN=$((TESTS_RUN + 1))
+  echo "TEST: report-only mode shows warnings instead of errors"
+  setup
+
+  build_jar_with_release 17 "bad.jar"
+
+  output=$(run_verify "$WORK_DIR" "" "52" "0" "false")
+
+  if echo "$output" | grep -q "WARNING:"; then
+    pass "uses WARNING label"
+  else
+    fail "should use WARNING label" "output: $output"
+  fi
+
+  if echo "$output" | grep -q "warning(s)"; then
+    pass "reports warning count"
+  else
+    fail "should report warning count" "output: $output"
+  fi
+
+  teardown
+}
+
+test_report_only_mode_summary_shows_warn() {
+  TESTS_RUN=$((TESTS_RUN + 1))
+  echo "TEST: report-only mode step summary shows warn status"
+  setup
+
+  build_jar_with_release 17 "bad.jar"
+  summary_file="$WORK_DIR/summary.md"
+
+  run_verify_with_summary "$WORK_DIR" "" "52" "0" "false"
+
+  if [ ! -f "$summary_file" ]; then
+    fail "summary file should be created" "file not found: $summary_file"
+    teardown
+    return
+  fi
+
+  summary=$(cat "$summary_file")
+
+  if echo "$summary" | grep -q "Warn"; then
+    pass "summary shows warn status"
+  else
+    fail "summary should show warn status" "summary: $summary"
+  fi
+
+  if echo "$summary" | grep -q "### Violations"; then
+    pass "summary still contains violation details"
+  else
+    fail "summary should still contain violation details" "summary: $summary"
+  fi
+
+  teardown
+}
+
+test_fail_on_violation_true_still_fails() {
+  TESTS_RUN=$((TESTS_RUN + 1))
+  echo "TEST: fail-on-violation=true still fails the build"
+  setup
+
+  build_jar_with_release 17 "bad.jar"
+
+  if output=$(run_verify "$WORK_DIR" "" "52" "0" "true"); then
+    fail "should exit with non-zero" "output: $output"
+  else
+    pass "exits with non-zero when fail-on-violation=true"
+  fi
+
+  teardown
+}
+
+test_report_only_no_violations_passes() {
+  TESTS_RUN=$((TESTS_RUN + 1))
+  echo "TEST: report-only mode with no violations passes cleanly"
+  setup
+
+  build_jar_with_release 8 "good.jar"
+
+  if output=$(run_verify "$WORK_DIR" "" "52" "0" "false"); then
+    pass "exits with zero"
+  else
+    fail "should exit with zero" "output: $output"
+  fi
+
+  if echo "$output" | grep -q "report-only mode"; then
+    fail "should NOT show report-only message when no violations" "output: $output"
+  else
+    pass "no report-only message when clean"
+  fi
+
+  teardown
+}
+
 test_excluded_jar_suffixes_are_skipped() {
   TESTS_RUN=$((TESTS_RUN + 1))
   echo "TEST: javadoc, sources, and test-sources JARs are skipped"
@@ -494,6 +613,11 @@ test_multiple_jars_all_violations_reported
 test_step_summary_contains_violation_details
 test_step_summary_no_violations_section_when_passing
 test_step_summary_multiple_jars_detailed
+test_report_only_mode_does_not_fail
+test_report_only_mode_shows_warnings
+test_report_only_mode_summary_shows_warn
+test_fail_on_violation_true_still_fails
+test_report_only_no_violations_passes
 test_excluded_jar_suffixes_are_skipped
 
 echo ""

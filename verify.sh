@@ -10,6 +10,7 @@ NC='\033[0m'
 
 DIR="${INPUT_DIRECTORY}"
 MAX_CHECKS="${INPUT_MAX_CHECKS}"
+FAIL_ON_VIOLATION="${INPUT_FAIL_ON_VIOLATION:-true}"
 
 if [ -n "${INPUT_JAVA_VERSION:-}" ]; then
   BYTECODE_VERSION=$(( INPUT_JAVA_VERSION + 44 ))
@@ -96,7 +97,11 @@ for JAR_FILE in "${JARS[@]}"; do
     JAR_CHECKED=$((JAR_CHECKED + 1))
 
     if [ "$major" -gt "$BYTECODE_VERSION" ]; then
-      echo -e "  ${RED}ERROR: $f — bytecode $major exceeds allowed $BYTECODE_VERSION${NC}"
+      if [ "$FAIL_ON_VIOLATION" = "true" ]; then
+        echo -e "  ${RED}ERROR: $f — bytecode $major exceeds allowed $BYTECODE_VERSION${NC}"
+      else
+        echo -e "  ${YELLOW}WARNING: $f — bytecode $major exceeds allowed $BYTECODE_VERSION${NC}"
+      fi
       JAR_FAILED=$((JAR_FAILED + 1))
       JAR_VIOLATIONS+="| \`$f\` | $major | $BYTECODE_VERSION |\n"
     fi
@@ -104,8 +109,13 @@ for JAR_FILE in "${JARS[@]}"; do
 
   if [ "$JAR_FAILED" -gt 0 ]; then
     HAS_FAILURES=1
-    echo -e "  ${RED}Checked $JAR_CHECKED class(es) — $JAR_FAILED violation(s)${NC}"
-    SUMMARY_ROWS+="| \`$(basename "$JAR_FILE")\` | $JAR_CHECKED | ❌ Fail ($JAR_FAILED violation(s)) |\n"
+    if [ "$FAIL_ON_VIOLATION" = "true" ]; then
+      echo -e "  ${RED}Checked $JAR_CHECKED class(es) — $JAR_FAILED violation(s)${NC}"
+      SUMMARY_ROWS+="| \`$(basename "$JAR_FILE")\` | $JAR_CHECKED | ❌ Fail ($JAR_FAILED violation(s)) |\n"
+    else
+      echo -e "  ${YELLOW}Checked $JAR_CHECKED class(es) — $JAR_FAILED warning(s)${NC}"
+      SUMMARY_ROWS+="| \`$(basename "$JAR_FILE")\` | $JAR_CHECKED | ⚠️ Warn ($JAR_FAILED violation(s)) |\n"
+    fi
     FAILURE_DETAILS+="<details>\n<summary><code>$(basename "$JAR_FILE")</code> — $JAR_FAILED violation(s)</summary>\n\n"
     FAILURE_DETAILS+="| Class | Bytecode Version | Allowed |\n"
     FAILURE_DETAILS+="| --- | --- | --- |\n"
@@ -119,6 +129,10 @@ done
 
 if [ "$HAS_FAILURES" -eq 1 ]; then
   echo ""
-  echo -e "${RED}Bytecode version violations detected${NC}"
-  exit 1
+  if [ "$FAIL_ON_VIOLATION" = "true" ]; then
+    echo -e "${RED}Bytecode version violations detected${NC}"
+    exit 1
+  else
+    echo -e "${YELLOW}Bytecode version violations detected (report-only mode, not failing the build)${NC}"
+  fi
 fi
