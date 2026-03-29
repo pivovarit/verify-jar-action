@@ -43,4 +43,4 @@ runs:
         INPUT_BYTECODE_VERSION: ${{ inputs.bytecode-version }}
         INPUT_MAX_CHECKS: ${{ inputs.max-checks }}
         INPUT_FAIL_ON_VIOLATION: ${{ inputs.fail-on-violation }}
-      run: ${{ github.action_path }}/verify.sh
+      run: ${{ github.action_path }}/action.sh
