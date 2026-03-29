@@ -1,4 +1,4 @@
-name: CI
+name: ci
 
 on:
   push:
@@ -15,4 +15,13 @@ jobs:
         with:
           distribution: temurin
           java-version: 25
-      - run: bash tests/verify_test.sh
+      - name: Cache bashunit
+        id: cache-bashunit
+        uses: actions/cache@v4
+        with:
+          path: lib
+          key: bashunit-0.34.1
+      - name: Install bashunit
+        if: steps.cache-bashunit.outputs.cache-hit != 'true'
+        run: curl -s https://bashunit.typeddevs.com/install.sh | bash -s lib 0.34.1
+      - run: ./lib/bashunit action_test.sh
