@@ -23,5 +23,5 @@ jobs:
           key: bashunit-0.34.1
       - name: Install bashunit
         if: steps.cache-bashunit.outputs.cache-hit != 'true'
-        run: curl -s https://bashunit.typeddevs.com/install.sh | bash -s lib 0.34.1
+        run: curl -sSL https://bashunit.typeddevs.com/install.sh | bash -s lib 0.34.1
       - run: ./lib/bashunit action_test.sh
